@@ -1,0 +1,21 @@
+# 虚拟环境与缓存
+/.venv/
+/__pycache__/
+*.pyc
+/.test_tmp/
+
+#聊天记录
+/memory_db/
+
+
+# AI 工具本地配置
+/.claude/
+/AGENTS.md
+/CLAUDE.md
+
+
+
+# 环境变量
+/.env
+
+
