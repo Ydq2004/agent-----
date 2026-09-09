@@ -102,8 +102,3 @@ def tool_get_system_status()->str:
 
 ALL_TOOLS=[save_memory,search_memory,update_memory_by_id,tool_read_file,tool_list_file,tool_write_file,tool_execute_python_code,tool_get_system_status]
 
-if __name__ == "__main__":
-    print(f"✅ 成功注册工具数量: {len(ALL_TOOLS)}")
-    for t in ALL_TOOLS:
-        desc = t.description.strip().splitlines()[0]
-        print(f"- 已加载工具: {t.name:25} | 描述: {desc}")

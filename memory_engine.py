@@ -5,7 +5,7 @@ from langchain_core.documents import Document
 from langchain_core.tools import tool
 from langchain_huggingface import HuggingFaceEmbeddings
 
-EDGE_THRESHOLD  = 1.5
+EDGE_THRESHOLD  = 0.8
 MAX_MENTION = 100
 
 class MemoryEngine:
@@ -80,7 +80,7 @@ class MemoryEngine:
                 "tags":tags_str,
                 "mention_count":new_mention_count,
                 "created_at":created_at,
-                "last_created_at":datetime.now().isoformat()
+                "last_mentioned_at":datetime.now().isoformat()
             }
             page_content=f"{new_concept_name}:{new_content}"
             doc=Document(page_content=page_content,metadata=new_metadatas)
@@ -105,9 +105,12 @@ class MemoryEngine:
                 continue
 
             #近因性
-            last_time=datetime.fromisoformat(doc.metadata.get("last_mentioned_at", ""))
-            hours_elapsed = (datetime.now() - last_time).total_seconds() / 3600.0
-            recency=exp(-log(2) * hours_elapsed / 24.0)
+            try:
+                last_time=datetime.fromisoformat(doc.metadata.get("last_mentioned_at", ""))
+                hours_elapsed = (datetime.now() - last_time).total_seconds() / 3600.0
+                recency=exp(-log(2) * hours_elapsed / 24.0)
+            except (ValueError,TypeError):
+                recency=0.0
 
             #重要性
             mention_count=doc.metadata.get("mention_count", 1)
@@ -157,62 +160,3 @@ class MemoryEngine:
 
 
 
-if __name__ == "__main__":
-    print("🚀 正在初始化 MemoryEngine 测试...")
-    engine = MemoryEngine()
-
-    # 1. 首次写入测试
-    result1 = engine.save(
-        concept="Python",
-        content="一种优雅且功能强大的高级编程语言。",
-        tags=["编程", "开发", "工具"]
-    )
-    print("\n--- 第一次写入结果 ---")
-    print(result1)
-
-    # 2. 搜索测试
-    print("\n--- 语义检索测试 ---")
-    search_list = engine.search(query="编程开发工具有哪些？")
-    print(f"检索返回条数: {len(search_list)}")
-    for item in search_list:
-        print(f"-> 找到记忆: 【{item['concept']}】 ID: {item['concept_id']}")
-        print(f"   内容: {item['content']}")
-
-    # 3. 拿到刚才搜到的 ID，进行精确修改测试
-    if search_list:
-        target_id = search_list[0]["concept_id"]
-        update_result = engine.update_by_id(
-            concept_id=target_id,
-            new_content="Python 是目前全球最火的 AI 开发语言，语法极其极简。",
-            new_concept_name="Python编程语言"
-        )
-        print("\n--- 精确修改测试 ---")
-        print(update_result)
-    else:
-        print("\n⚠️ 未检索到相关记忆，请检查 EDGE_THRESHOLD 是否过小。")
-    print("🚀 正在初始化 MemoryEngine 测试...")
-    engine = MemoryEngine()
-
-    # 1. 首次写入测试
-    result1 = engine.save(
-        concept="Python",
-        content="一种优雅且功能强大的高级编程语言。",
-        tags=["编程", "开发", "工具"]
-    )
-    print("\n--- 第一次写入结果 ---")
-    print(result1)
-
-    # 2. 搜索测试
-    print("\n--- 语义检索测试 ---")
-    search_list = engine.search(query="编程开发工具有哪些？")
-
-    # 3. 拿到刚才搜到的 ID，进行精确修改测试
-    if search_list:
-        target_id = search_list[0]["concept_id"]
-        update_result = engine.update_by_id(
-            concept_id=target_id,
-            new_content="Python 是目前全球最火的 AI 开发语言，语法极其极简。",
-            new_concept_name="Python编程语言"
-        )
-        print("\n--- 精确修改测试 ---")
-        print(update_result)
