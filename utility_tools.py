@@ -4,8 +4,8 @@ import platform
 import subprocess
 import sys
 
-
 WORKSPACE_DIRS=[".\\workspace","C:\\Users\\21968\\Desktop"]
+
 
 def _safe_path(filepath:str):
     safe=False
@@ -100,26 +100,26 @@ def execute_python_code(code:str,timeout_seconds:int=10) ->str:
     cwd_dir = os.path.realpath(WORKSPACE_DIRS[0])
 
     try:
-       process=subprocess.run(
-           [sys.executable,"-c",code],
-           cwd=cwd_dir,
-           capture_output=True,
-           text=True,
-           timeout=timeout_seconds,
-           encoding="utf-8",
-           errors="replace"
-       )
-       output = process.stdout
-       error_output =process.stderr
-       if process.returncode != 0:
+        process=subprocess.run(
+            [sys.executable,"-c",code],
+            cwd=cwd_dir,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            encoding="utf-8",
+            errors="replace"
+        )
+        output = process.stdout
+        error_output =process.stderr
+        if process.returncode != 0:
             return f"代码执行失败（退出码 {process.returncode}）：\n{error_output.strip()}"
         
-       if not output.strip() and not error_output.strip():
+        if not output.strip() and not error_output.strip():
             return "代码执行成功，但没有产生任何标准输出（print）。"
-       result=output.strip()
-       if error_output.strip():
+        result=output.strip()
+        if error_output.strip():
             result += f"\n[警告/标准错误输出]:\n{error_output.strip()}"
-       return f"执行输出：\n{result}"
+        return f"执行输出：\n{result}"
     except subprocess.TimeoutExpired:
         return f"代码执行超时：运行时间超过了 {timeout_seconds} 秒上限，已被系统强行终止。"
 
