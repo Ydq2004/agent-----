@@ -12,3 +12,5 @@ langchain-huggingface==1.2.2
 langchain-chroma==1.1.0
 sqlmodel
 sentence-transformers
+fastapi
+uvicorn

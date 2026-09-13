@@ -3,29 +3,39 @@ from datetime import datetime
 import platform
 import subprocess
 import sys
+import json
 
-WORKSPACE_DIRS=[".\\workspace","C:\\Users\\21968\\Desktop"]
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE_DIRS = [
+    os.path.join(PROJECT_DIR, "workspace"),
+    "C:\\Users\\21968\\Desktop"
+]
+
 
 
 def _safe_path(filepath:str):
     safe=False
     target_path=""
+    errors=[]
     for workspace_dir in WORKSPACE_DIRS:
-        root=os.path.realpath(workspace_dir)
-        if os.path.isabs(filepath):
-            target = os.path.realpath(filepath)
-        else:
-            target = os.path.realpath(os.path.join(root, filepath))
+        try:
+            root=os.path.realpath(workspace_dir)
+            if os.path.isabs(filepath):
+                target = os.path.realpath(filepath)
+            else:
+                target = os.path.realpath(os.path.join(root, filepath))
             
-        if os.path.splitdrive(root)[0].lower() != os.path.splitdrive(target)[0].lower():
+            if os.path.splitdrive(root)[0].lower() != os.path.splitdrive(target)[0].lower():
+                continue
+
+            if target.startswith(root + os.sep) or target == root:
+                safe = True
+                target_path = target
+                break
+        except (ValueError,OSError) as e:
+            errors.append(f"错误:{e}")
             continue
-
-        if os.path.commonpath([root,target])==root:
-            safe=True
-            target_path=target
-            break
-
-    return safe,target_path
+    return safe,target_path,errors
 
 def _read_text(path: str) -> str:
     """以二进制读取并自动探测 utf-8-sig / utf-8 / gbk 编码"""
@@ -43,7 +53,10 @@ def _read_text(path: str) -> str:
 
 
 def read_workspace_file(filepath:str)->str:
-    safe,file_path = _safe_path(filepath)
+    safe,file_path,errors = _safe_path(filepath)
+    if errors:
+        error_text="工具执行失败，错误信息如下：\n"+"\n".join(json.dumps(item,ensure_ascii=False)for item in errors)
+        return  error_text
     if not safe:
         return f"读取失败：路径 [{filepath}] 不在允许范围内。"
    
@@ -57,7 +70,10 @@ def read_workspace_file(filepath:str)->str:
 
 
 def  write_workspace_file(filepath:str, content:str, mode: str ="w")->str:
-    safe,file_path = _safe_path(filepath)
+    safe,file_path,errors = _safe_path(filepath)
+    if errors:
+        error_text="工具执行失败，错误信息如下：\n"+"\n".join(json.dumps(item,ensure_ascii=False)for item in errors)
+        return  error_text
     if not safe:
         return f"写入失败：路径 [{filepath}] 不在允许范围内。"
     file_str="文件内容"
@@ -75,12 +91,19 @@ def  write_workspace_file(filepath:str, content:str, mode: str ="w")->str:
 def list_files(listpath:str = None,)->str:
     if listpath is None : 
         listpath = "."
-    safe,list_path = _safe_path(listpath)
+    safe,list_path,errors = _safe_path(listpath)
+    if errors:
+        error_text="工具执行失败，错误信息如下：\n"+"\n".join(json.dumps(item,ensure_ascii=False)for item in errors)
+        return  error_text
     if not safe:
         return f"读取文件表失败：路径 [{list_path}] 不在允许范围内。"
     if not os.path.exists(list_path):
          return f"读取失败：文件夹 [{list_path}] 不存在。"
-    files=os.listdir(list_path)
+    # 👇 给 listdir 加上异常捕获
+    try:
+         files = os.listdir(list_path)
+    except (OSError, ValueError) as e:
+         return f"读取文件列表失败：{e}"
     if not files:
         return f"当前路径文件表{list_path}为空，暂无任何文件。"
     return "当前工作区文件列表：\n" + "\n".join(f"- {f}" for f in files)

@@ -61,13 +61,13 @@ def update_memory_by_id(
 
 @tool
 def tool_read_file(filepath:str)->str:
-    """文件阅读工具:filepath为需要阅读的文件地址,注意filepath只能在workspace内"""
+    """文件阅读工具:filepath为需要阅读的文件地址,注意filepath只能在允许范围内,注意不用顾虑转义符,直接输入地址即可"""
     msg=read_workspace_file(filepath=filepath)
     return msg
 
 @tool
 def tool_list_file(listpath:str)->str:
-    """查看特定地址下有哪些文件工具:listpath为需要查看文件夹的地址路径,注意listpath只能在workspace内"""
+    """查看特定地址下有哪些文件工具:listpath为需要查看文件夹的地址路径,注意listpath只能在允许范围内,注意不用顾虑转义符,直接输入地址即可"""
     msg=list_files(listpath=listpath)
     return msg
 
@@ -80,7 +80,7 @@ def tool_write_file(
     """
     写文件工具.
     参数:
-    filepath将要写入的文件地址.
+    filepath将要写入的文件地址,只能在允许范围内,注意不用顾虑转义符,直接输入地址即可.
     content将要写入或追加的内容.
     mode写入模式,'w'是覆盖,'a'是追加.
     """

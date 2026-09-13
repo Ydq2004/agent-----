@@ -1,0 +1,49 @@
+Running pytest with args: ['-p', 'vscode_pytest', '--rootdir=c:\\Users\\21968\\Desktop\\agent项目复刻版', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_search_empty_db_returns_empty', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_save_then_search', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_save_same_concept_twice_does_not_duplicate', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_update_changes_last_mentioned_at', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_update_accumulates_mention_count', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_update_missing_id_returns_error', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_irrelevant_query_is_filtered', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_memory_engine.py::test_missing_timestamp_does_not_crash', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_dangerous_path_rejected[..\\\\..\\\\Windows\\\\win.ini]', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_dangerous_path_rejected[..\\\\..\\\\..\\\\..\\\\..\\\\Windows\\\\win.ini]', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_dangerous_path_rejected[C:\\\\Windows\\\\win.ini]', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_dangerous_path_rejected[..\\\\..\\\\..\\\\Users]', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_safe_relative_path_accepted', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_read_outside_workspace_returns_error', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_write_outside_workspace_rejected', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_read_gbk_file', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_read_binary_file_returns_notice', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_write_then_read_roundtrip', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_invalid_mode_rejected', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_read_missing_file', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_list_files_default', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_list_files_none_does_not_crash', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_execute_prints_result', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_execute_nonzero_exit', 'c:\\Users\\21968\\Desktop\\agent项目复刻版\\tests\\test_utility_tools.py::test_execute_timeout']
+============================= test session starts =============================
+platform win32 -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0
+rootdir: c:\Users\21968\Desktop\agent项目复刻版
+plugins: anyio-4.15.1, langsmith-0.12.2
+collected 25 items
+
+tests\test_memory_engine.py ........                                     [ 32%]
+tests\test_utility_tools.py .......FF........                            [100%]
+
+================================== FAILURES ===================================
+_____________________________ test_read_gbk_file ______________________________
+
+    def test_read_gbk_file():
+        """GBK 编码的文件应能读出（Windows 记事本默认编码）。"""
+        name = "_test_gbk.txt"
+        with open(os.path.join(WORKSPACE, name), "wb") as f:
+            f.write("中文内容测试".encode("gbk"))
+        try:
+            result = read_workspace_file(name)
+>           assert "中文内容测试" in result
+E           AssertionError: assert '中文内容测试' in '读取失败：文件 [_test_gbk.txt] 不存在。'
+
+tests\test_utility_tools.py:87: AssertionError
+____________________ test_read_binary_file_returns_notice _____________________
+
+    def test_read_binary_file_returns_notice():
+        """二进制文件不能抛异常，应返回明确提示。"""
+        name = "_test_binary.bin"
+        with open(os.path.join(WORKSPACE, name), "wb") as f:
+            f.write(bytes(range(256)))
+        try:
+            result = read_workspace_file(name)
+            assert isinstance(result, str)
+>           assert "二进制" in result or "未知编码" in result
+E           AssertionError: assert ('二进制' in '读取失败：文件 [_test_binary.bin] 不存在。' or '未知编码' in '读取失败：文件 [_test_binary.bin] 不存在。')
+
+tests\test_utility_tools.py:100: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128
+  c:\Users\21968\Desktop\agent项目复刻版\.venv\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(f):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_utility_tools.py::test_read_gbk_file - AssertionError: asse...
+FAILED tests/test_utility_tools.py::test_read_binary_file_returns_notice - As...
+================== 2 failed, 23 passed, 1 warning in 26.17s ===================
+Finished running tests!
