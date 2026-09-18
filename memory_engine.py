@@ -5,7 +5,7 @@ from langchain_core.documents import Document
 from langchain_core.tools import tool
 from langchain_huggingface import HuggingFaceEmbeddings
 
-EDGE_THRESHOLD  = 0.8
+EDGE_THRESHOLD  = 1.2
 MAX_MENTION = 100
 
 class MemoryEngine:

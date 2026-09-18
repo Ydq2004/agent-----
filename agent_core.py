@@ -29,6 +29,7 @@ llm=ChatOpenAI(
     temperature=0.8
 )
 
+
 @dynamic_prompt
 def runtime_prompt(request)->str:
     """动态更新systemprompt时间且不污染 Checkpoint"""
