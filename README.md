@@ -62,6 +62,40 @@ def runtime_prompt(request) -> str:
 
 **为什么不把时间拼进用户消息？** 因为那会污染 checkpoint——时间戳会被永久写进对话历史，每轮累积，且历史消息带着过时的时间。用中间件在请求层临时替换 system message，不写回状态。
 
+### 5. 分层重试
+
+重试按执行边界拆分，不对整个 `agent.invoke()` 重试，避免重复提交同一条 `HumanMessage`：
+
+- `ModelRetryMiddleware`：只重试模型请求的临时错误（连接失败、超时、限流和部分 5xx）。
+- `ToolRetryMiddleware`：只对只读工具重试一次，目前包括记忆查询、文件读取、文件列表和系统状态查询。
+- 保存记忆、更新记忆、写文件和执行代码不自动重试，因为它们可能产生外部副作用。
+
+工具只有抛出可重试异常时才会触发中间件。工具返回的业务失败字符串不会被当作临时异常重试。
+
+### 6. 结构化响应契约（升级计划第 1 阶段）
+
+`response_models.py` 定义了 Agent 输出的基础契约 `StructuredAgentResponse`：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `answer` | `str` | 是 | 展示给用户的最终回答，不能为空 |
+| `intent` | `str` | 是 | 当前请求的意图，例如 `general`、`memory`、`file` 或 `code` |
+| `memory_candidates` | `list[str]` | 否 | 相关记忆关键词，默认是空列表 |
+| `need_tool` | `bool` | 是 | 是否需要调用工具 |
+
+模型拒绝未声明的额外字段，并会拒绝空回答、缺少必填字段等无效结果。当前 `/chat` 仍保持原有文本响应兼容；结构化结果的 Agent 接入安排在下一天。
+
+示例：
+
+```json
+{
+  "answer": "已查询到相关记忆。",
+  "intent": "memory",
+  "memory_candidates": ["用户偏好"],
+  "need_tool": true
+}
+```
+
 ---
 
 ## 快速开始
@@ -105,7 +139,42 @@ export DEEPSEEK_API_KEY="你的 Key"
 ### 运行
 
 ```bash
-python agent_core.py
+# 开发模式启动 API 服务
+uvicorn api_server:app --reload
+```
+
+启动后可访问 `http://127.0.0.1:8000/docs` 查看 Swagger 文档。
+
+### 接口示例
+
+健康检查：
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+普通聊天：
+
+```bash
+curl -X POST http://127.0.0.1:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"thread_id":"demo-001","message":"你好"}'
+```
+
+流式聊天：
+
+```bash
+curl -N -X POST http://127.0.0.1:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"thread_id":"demo-stream-001","message":"请流式回复"}'
+```
+
+Windows PowerShell 中也可以把 JSON 保存到文件后使用：
+
+```powershell
+curl.exe -N -X POST "http://127.0.0.1:8000/chat/stream" `
+  -H "Content-Type: application/json" `
+  --data-binary "@stream_request.json"
 ```
 
 ---
@@ -312,8 +381,13 @@ Windows 记事本默认保存为 GBK。读取这类文件时直接报错：
 
 4. **`SummarizationMiddleware` 的触发阈值设为 300000 tokens**，在实际使用中几乎不会触发，长对话压缩能力未经真实验证。
 
-5. **测试覆盖仍不完整**。目前覆盖了文件工具与记忆引擎的核心路径（25 个用例），
-   但 Agent 层的对话流程、工具调用链、长对话压缩尚无测试。
+5. **测试覆盖仍不完整**。目前共有 43 个用例，覆盖文件工具、记忆引擎、API 层以及模型和工具重试边界，
+   但 Agent 层的真实模型对话流程、长对话压缩和真实工具调用链尚无测试。
+
+6. **客户端重复请求尚未去重**。当前重试已经下沉到模型和只读工具层，但如果客户端因网络原因没有收到响应并再次发送同一个请求，服务仍可能把它当作新的请求执行。
+   后续需要为客户端提供幂等键，并保存请求状态和最终结果。
+
+7. **工具错误类型仍需细化**。现有工具的一些失败会返回普通字符串，因此不会触发工具重试；后续需要区分可重试的临时错误和应直接展示的业务错误。
 
 ---
 
@@ -324,12 +398,15 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-现有 25 个用例：
+当前共有 43 个用例：
 
 | 文件 | 用例数 | 覆盖内容 |
 |---|---|---|
 | `tests/test_utility_tools.py` | 17 | 路径白名单（穿越 / 绝对路径）、GBK 与二进制读取、读写往返、非法模式、代码执行与超时 |
 | `tests/test_memory_engine.py` | 8 | 空库检索、写入去重、更新字段一致性、mention_count 累加、阈值过滤、脏数据容错 |
+| `tests/test_api_server.py` | 8 | 健康检查、参数校验、普通聊天成功/失败、SSE 正常/异常事件 |
+| `tests/test_response_models.py` | 6 | 结构化模型原型的字段校验 |
+| `tests/test_retry_policy.py` | 4 | 模型临时错误重试、只读工具重试和写工具不重试 |
 
 其中若干用例是**回归测试**，专门锁住本项目修复过的 bug：
 
@@ -357,7 +434,14 @@ agent项目复刻版/
 
 ## 运行截图
 
-_（待补充）_
+建议补充以下截图：
+
+- Swagger `/docs` 页面和 `/health` 响应；
+- `curl -N` 收到的 SSE `token` / `done` 事件；
+- 带 `request_id` 的请求日志；
+- 记忆检索命中结果。
+
+截图中不要包含 API Key、Cookie、完整本机路径或私人对话内容。
 
 ---
 
@@ -369,5 +453,6 @@ _（待补充）_
 - [ ] 长对话压缩阈值调优并实测触发效果
 - [ ] 检索准确率实测：构造标注集，记录 Top-3 命中率
 - [ ] 文件写入的确认机制（Human-in-the-loop）
-- [ ] 工具调用失败重试
+- [x] 分层工具调用失败重试（模型层、只读工具层）
+- [ ] 客户端请求幂等键与重复请求去重
 - [ ] 记忆的遗忘机制（长期未提及的条目自动降权）

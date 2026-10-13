@@ -48,13 +48,13 @@ def _cleanup(name: str) -> None:
 )
 def test_dangerous_path_rejected(evil_path):
     """这些路径都必须被判为不安全。"""
-    safe, _ = _safe_path(evil_path)
+    safe, _, _ = _safe_path(evil_path)
     assert safe is False, f"路径 {evil_path} 本应被拒绝，却通过了校验"
 
 
 def test_safe_relative_path_accepted():
     """工作区内的相对路径应该通过。"""
-    safe, target = _safe_path("test_note.txt")
+    safe, target, _ = _safe_path("test_note.txt")
     assert safe is True
     assert os.path.realpath(target).startswith(os.path.realpath("."))
 

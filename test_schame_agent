@@ -1,0 +1,53 @@
+from response_models import normalize_agent_result
+from langchain_core.messages import AIMessage
+import json
+
+result = {
+    "messages": [
+        AIMessage(content='{"answer":"已完成"}')
+    ]
+}
+
+"""def normalize_agent_result(raw_result):
+    if isinstance(raw_result,dict):
+        try:
+            return StructuredAgentResponse.model_validate(raw_result)
+        except Exception as e:
+            raise TypeError( f"agent结果字典校验失败:{e}")
+
+    if isinstance(raw_result,str):
+        return StructuredAgentResponse(
+            answer= raw_result,
+            intent="general",
+            memory_candidates=[],
+            need_tool=False,
+        )
+    raise TypeError(f"不支持agent结果类型:{type(raw_result).__name__}")
+
+
+def parse_agent_content(raw_content):
+    try:
+        parsed_content = json.loads(raw_content)
+    except json.JSONDecodeError:
+        if raw_content.lstrip().startswith(("{", "[")):
+            raise ValueError(f"agent结果json格式错误")
+        parsed_content = raw_content
+    print(type(parsed_content).__name__)
+    return normalize_agent_result(parsed_content)
+"""
+
+
+try:
+    last_message = result["messages"][-1]
+    raw_content = getattr(last_message,"content","")
+    structured_result = normalize_agent_result(raw_content)
+    
+    print(structured_result.answer)
+    print(structured_result.intent)
+    print(structured_result.memory_candidates)
+    print(structured_result.need_tool)
+except (TypeError, ValueError) as e:
+    print(f"错误:{e}")
+
+
+

@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field #pydantic 是一个专门用来做数据�
 from langchain_core.messages import HumanMessage
 from observability import create_request_id,log_request_event
 from time import perf_counter
-import time
+
 import json
+
+
 
 app = FastAPI(
     title="雪之下雪乃Agent API",
@@ -24,38 +26,6 @@ class ChatResponse(BaseModel):
     answer:str
     request_id:str
 
-
-def is_retryable_error(exc: Exception) -> bool:
-    status_code = getattr(exc, "status_code", None)
-
-    if status_code in {429, 500, 502, 503, 504}:
-        return True
-
-    return isinstance(
-        exc,
-        (TimeoutError, ConnectionError)
-    )
-
-def invoke_agent_with_retry(
-    messages,
-    config,
-    max_retries=2
-):
-    for attempt in range(max_retries + 1):
-        try:
-            return agent.invoke(
-                messages,
-                config=config
-            )
-        except Exception as e:
-            if not is_retryable_error(e):
-                raise
-
-            if attempt == max_retries:
-                raise
-
-            wait_seconds = attempt + 1
-            time.sleep(wait_seconds)
 
 
 
@@ -84,7 +54,7 @@ def chat(request:ChatRequest):
         request.thread_id
     )
     try:
-        result= invoke_agent_with_retry(
+        result= agent.invoke(
            {
                  "messages":[
                            HumanMessage(content=request.message)
@@ -114,6 +84,38 @@ def chat(request:ChatRequest):
             }
         ) from e
 
+
+    #校验返回agent返回内容
+
+    try:
+        messages= result.get("messages",[])
+        if not messages:
+            raise ValueError("agent没有返回消息")
+        
+        LastMessage=messages[-1]
+        if not getattr(LastMessage,"content",""):
+            raise ValueError("agent返回的内容为空")
+
+        answer =LastMessage.content
+    except (ValueError,TypeError) as e:
+        elapsed_ms=round( (perf_counter()-start_time)*1000, 2 )
+        log_request_event(
+            "request_end",
+            request_id,
+            request.thread_id,
+            elapsed_ms=elapsed_ms,
+            success=False,
+            error_type=type(e).__name__
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail={
+            "message": "Agent 返回结果格式无效",
+            "request_id": request_id,
+        },
+        ) from e
+
     elapsed_ms = round( (perf_counter()-start_time)*1000 , 2 )
     log_request_event(
         "request_end",
@@ -123,13 +125,11 @@ def chat(request:ChatRequest):
         success=True
     )
 
-
     return{
         "thread_id":request.thread_id,
-        "answer":result["messages"][-1].content,
+        "answer":answer,
         "request_id":request_id
     }
-
 
 
 
@@ -180,7 +180,7 @@ def agent_event_generator(
                
 
            if content and not tool_calls:
-               yield f"data: {json.dumps({'type': 'token', 'content': content, 'thread_id': request.thread_id}, ensure_ascii=False)}\n\n"
+               yield f"data: {json.dumps({'type': 'token', 'content': content, 'thread_id': request.thread_id, 'request_id': request_id}, ensure_ascii=False)}\n\n"
     except Exception as e:
         elapsed_ms = round(
             (perf_counter() - start_time) * 1000,
@@ -195,7 +195,7 @@ def agent_event_generator(
             success=False,
             error_type=type(e).__name__
         )
-        yield f"data: {json.dumps({'type': 'error', 'content': 'Agent 执行失败', 'thread_id': request.thread_id}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'content': 'Agent 执行失败', 'thread_id': request.thread_id, 'request_id': request_id}, ensure_ascii=False)}\n\n"
         return  #阻止异常后继续发送成功日志和 [DONE]
 
     elapsed_ms = round(
@@ -210,7 +210,7 @@ def agent_event_generator(
         elapsed_ms=elapsed_ms,
         success=True
     )
-    yield f"data: {json.dumps({'type': 'done', 'content': '', 'thread_id': request.thread_id}, ensure_ascii=False)}\n\n"   
+    yield f"data: {json.dumps({'type': 'done', 'content': '', 'thread_id': request.thread_id, 'request_id': request_id}, ensure_ascii=False)}\n\n"   
 
 
 
@@ -231,4 +231,3 @@ def chat_stream(request:ChatRequest):
     )
 
 
-渗滤
